@@ -51,11 +51,55 @@
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+unsigned char numberChar[] = {0xC0, 0xF9, 0xA4, 0xB0, 0x99, 0x92, 0x82, 0xF8, 0X80, 0X90};
+unsigned char segment[]   = {0xF1, 0xF2, 0xF4, 0xF8};
 
+void WriteBit(char _bit) {
+	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 0);
+	HAL_GPIO_WritePin(Data_GPIO_Port, Data_Pin, _bit);
+	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 1);
+}
+
+void WriteByte(char _byte) {
+	char temp = 0;
+    char count = 8;
+    char result = 0;
+//	HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
+	for (unsigned int i = 0; i < 8; i++) {
+		temp = (_byte >> i) & 0x01;
+        count--;
+        result |= temp << count;
+	}
+	for(unsigned int i = 0; i < 8; i++){
+		temp = (result >> i) & 0x01;
+		WriteBit(temp);
+	}
+//	HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
+}
+
+void PrintSegments(unsigned int data) {
+	unsigned int i = 0;
+
+	unsigned char number[4] = { 0, 0, 0, 0 };
+
+	number[0] = data / 1000;
+	number[1] = data % 1000 / 100;
+	number[2] = data % 100 / 10;
+	number[3] = data % 10;
+
+	for (i = 0; i < 4; i++) {
+		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
+		WriteByte(numberChar[number[i]]);
+		WriteByte(segment[i]);
+		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
+	}
+}
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
+extern I2C_HandleTypeDef hi2c2;
 extern TIM_HandleTypeDef htim6;
+extern UART_HandleTypeDef huart2;
 /* USER CODE BEGIN EV */
 int data_display;
 /* USER CODE END EV */
@@ -150,12 +194,41 @@ void TIM6_IRQHandler(void)
   /* USER CODE END TIM6_IRQn 0 */
   HAL_TIM_IRQHandler(&htim6);
   /* USER CODE BEGIN TIM6_IRQn 1 */
-  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_6);
-  data_display++;
-  if(data_display > 9999){
-	  data_display = 0;
-  }
+  PrintSegments(data_display);
+
   /* USER CODE END TIM6_IRQn 1 */
+}
+
+/**
+  * @brief This function handles I2C2 global interrupt.
+  */
+void I2C2_IRQHandler(void)
+{
+  /* USER CODE BEGIN I2C2_IRQn 0 */
+
+  /* USER CODE END I2C2_IRQn 0 */
+  if (hi2c2.Instance->ISR & (I2C_FLAG_BERR | I2C_FLAG_ARLO | I2C_FLAG_OVR)) {
+    HAL_I2C_ER_IRQHandler(&hi2c2);
+  } else {
+    HAL_I2C_EV_IRQHandler(&hi2c2);
+  }
+  /* USER CODE BEGIN I2C2_IRQn 1 */
+
+  /* USER CODE END I2C2_IRQn 1 */
+}
+
+/**
+  * @brief This function handles USART2 global interrupt.
+  */
+void USART2_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART2_IRQn 0 */
+
+  /* USER CODE END USART2_IRQn 0 */
+  HAL_UART_IRQHandler(&huart2);
+  /* USER CODE BEGIN USART2_IRQn 1 */
+
+  /* USER CODE END USART2_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
