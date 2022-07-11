@@ -78,6 +78,7 @@ static void MX_I2C2_Init(void);
 /* USER CODE BEGIN 0 */
 
 extern int data_display;
+extern int i;
 
 void VirtualPort(unsigned int data) {
 	unsigned int temp_data, i;
@@ -159,12 +160,12 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
-		for(int i = 0; i < 100; i++){
+		for(i = 0; i < 100; i++){
 			VirtualPort(i / 10);
 			data_display = i;
 //			tx_uart[0] = (i / 10)+0x30;
-			sprintf((char*)tx_uart, "%s""%d""%c", "Board send int = ", i, '\n');
-			HAL_UART_Transmit(&huart2, tx_uart, strlen(tx_uart), 0xFFFF);
+//			sprintf((char*)tx_uart, "%s""%d""%c", "Board send int = ", i, '\n');
+//			HAL_UART_Transmit(&huart2, tx_uart, strlen(tx_uart), 0xFFFF);
 			HAL_Delay(1000);
 		}
 
@@ -394,6 +395,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : PA1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pins : LD2_Pin PA6 PA7 CLK_Pin
                            Data_Pin PA10 */
   GPIO_InitStruct.Pin = LD2_Pin|GPIO_PIN_6|GPIO_PIN_7|CLK_Pin
@@ -409,6 +416,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
 
 }
 
