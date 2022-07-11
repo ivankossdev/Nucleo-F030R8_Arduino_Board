@@ -21,7 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,7 +51,9 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
- SPI_HandleTypeDef hspi2;
+ I2C_HandleTypeDef hi2c2;
+
+SPI_HandleTypeDef hspi2;
 
 TIM_HandleTypeDef htim6;
 
@@ -66,6 +69,7 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_I2C2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -73,8 +77,7 @@ static void MX_TIM6_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-unsigned char numberChar[] = {0xC0, 0xF9, 0xA4, 0xB0, 0x99, 0x92, 0x82, 0xF8, 0X80, 0X90};
-unsigned char segment[]   = {0xF1, 0xF2, 0xF4, 0xF8};
+extern int data_display;
 
 void VirtualPort(unsigned int data) {
 	unsigned int temp_data, i;
@@ -112,47 +115,6 @@ void VirtualPortClear() {
  * PB5  - D4  STcp   D4 12 - STcp storage register input
  */
 
-void WriteBit(char _bit) {
-	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 0);
-	HAL_GPIO_WritePin(Data_GPIO_Port, Data_Pin, _bit);
-	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 1);
-}
-
-void WriteByte(char _byte) {
-	char temp = 0;
-    char count = 8;
-    char result = 0;
-//	HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
-	for (unsigned int i = 0; i < 8; i++) {
-		temp = (_byte >> i) & 0x01;
-        count--;
-        result |= temp << count;
-	}
-	for(unsigned int i = 0; i < 8; i++){
-		temp = (result >> i) & 0x01;
-		WriteBit(temp);
-	}
-//	HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
-}
-extern int data_display;
-void PrintSegments(unsigned int data) {
-	unsigned int i = 0;
-
-	unsigned char number[4] = { 0, 0, 0, 0 };
-
-	number[0] = data / 1000;
-	number[1] = data % 1000 / 100;
-	number[2] = data % 100 / 10;
-	number[3] = data % 10;
-
-	for (i = 0; i < 4; i++) {
-		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
-		WriteByte(numberChar[number[i]]);
-		WriteByte(segment[i]);
-		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
-	}
-}
-
 /* USER CODE END 0 */
 
 /**
@@ -186,16 +148,25 @@ int main(void)
   MX_USART2_UART_Init();
   MX_SPI2_Init();
   MX_TIM6_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
 
     HAL_TIM_Base_Start_IT(&htim6);
 	VirtualPortClear();
+	uint8_t tx_uart[32];
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
-		PrintSegments(data_display);
+		for(int i = 0; i < 100; i++){
+			VirtualPort(i / 10);
+			data_display = i;
+//			tx_uart[0] = (i / 10)+0x30;
+			sprintf((char*)tx_uart, "%s""%d""%c", "Board send int = ", i, '\n');
+			HAL_UART_Transmit(&huart2, tx_uart, strlen(tx_uart), 0xFFFF);
+			HAL_Delay(1000);
+		}
 
     /* USER CODE END WHILE */
 
@@ -240,6 +211,54 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C2_Init(void)
+{
+
+  /* USER CODE BEGIN I2C2_Init 0 */
+
+  /* USER CODE END I2C2_Init 0 */
+
+  /* USER CODE BEGIN I2C2_Init 1 */
+
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.Timing = 0x20303E5D;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C2_Init 2 */
+
+  /* USER CODE END I2C2_Init 2 */
+
 }
 
 /**
@@ -298,9 +317,9 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 20999;
+  htim6.Init.Prescaler = 1;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 499;
+  htim6.Init.Period = 10000;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -328,7 +347,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 38400;
+  huart2.Init.BaudRate = 9600;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
