@@ -102,6 +102,8 @@ extern TIM_HandleTypeDef htim6;
 extern UART_HandleTypeDef huart2;
 /* USER CODE BEGIN EV */
 int data_display;
+int i;
+uint8_t data_send[16];
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -183,6 +185,22 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32f0xx.s).                    */
 /******************************************************************************/
+
+/**
+  * @brief This function handles EXTI line 0 and 1 interrupts.
+  */
+void EXTI0_1_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI0_1_IRQn 0 */
+
+  /* USER CODE END EXTI0_1_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
+  /* USER CODE BEGIN EXTI0_1_IRQn 1 */
+  i = 0;
+  sprintf((char*)data_send,"%s", "A0_Reset\n");
+  HAL_UART_Transmit(&huart2, data_send, 9, 0xFFFF);
+  /* USER CODE END EXTI0_1_IRQn 1 */
+}
 
 /**
   * @brief This function handles TIM6 global interrupt.
