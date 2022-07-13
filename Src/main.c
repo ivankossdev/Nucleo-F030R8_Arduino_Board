@@ -146,7 +146,18 @@ void PrintTime(void) {
 		rx[i] = time_data[0];
 	}
 
-	data_display = RTC_ConvertFromDec(rx[2]) * 100 + RTC_ConvertFromDec(rx[1]);
+	if(A0_flag == 1){
+		data_display = RTC_ConvertFromDec(rx[1]) * 100 + RTC_ConvertFromDec(rx[0]);;
+		VirtualPort(1 << 1);
+		if(HAL_GPIO_ReadPin(A1_Button_GPIO_Port, A1_Button_Pin) == 0){
+			VirtualPortClear();
+			A0_flag = 0;
+		}
+	}
+	else {
+		data_display = RTC_ConvertFromDec(rx[2]) * 100 + RTC_ConvertFromDec(rx[1]);
+	}
+
 }
 
 /* USER CODE END 0 */
@@ -187,7 +198,6 @@ int main(void)
 
 	HAL_TIM_Base_Start_IT(&htim6);
 	VirtualPortClear();
-	uint8_t vport = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -195,17 +205,6 @@ int main(void)
 //	SetTime(9, 56);
 	while (1) {
 		PrintTime();
-		if(A0_flag == 1){
-			VirtualPort(1 << vport);
-			vport++;
-			if(vport > 4){
-				vport = 0;
-			}
-			if(HAL_GPIO_ReadPin(A1_Button_GPIO_Port, A1_Button_Pin) == 0){
-				VirtualPortClear();
-				A0_flag = 0;
-			}
-		}
 		HAL_Delay(100);
 
     /* USER CODE END WHILE */
