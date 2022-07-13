@@ -22,6 +22,7 @@
 #include "stm32f0xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,6 +54,7 @@
 /* USER CODE BEGIN 0 */
 unsigned char numberChar[] = {0xC0, 0xF9, 0xA4, 0xB0, 0x99, 0x92, 0x82, 0xF8, 0X80, 0X90};
 unsigned char segment[]   = {0xF1, 0xF2, 0xF4, 0xF8};
+uint8_t A0_flag;
 
 void WriteBit(char _bit) {
 	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 0);
@@ -97,7 +99,6 @@ void PrintSegments(unsigned int data) {
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern I2C_HandleTypeDef hi2c2;
 extern TIM_HandleTypeDef htim6;
 extern UART_HandleTypeDef huart2;
 /* USER CODE BEGIN EV */
@@ -196,7 +197,7 @@ void EXTI0_1_IRQHandler(void)
   /* USER CODE END EXTI0_1_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
   /* USER CODE BEGIN EXTI0_1_IRQn 1 */
-  i = 0;
+  A0_flag = 1;
   sprintf((char*)data_send,"%s", "A0_Reset\n");
   HAL_UART_Transmit(&huart2, data_send, 9, 0xFFFF);
   /* USER CODE END EXTI0_1_IRQn 1 */
@@ -215,24 +216,6 @@ void TIM6_IRQHandler(void)
   PrintSegments(data_display);
 
   /* USER CODE END TIM6_IRQn 1 */
-}
-
-/**
-  * @brief This function handles I2C2 global interrupt.
-  */
-void I2C2_IRQHandler(void)
-{
-  /* USER CODE BEGIN I2C2_IRQn 0 */
-
-  /* USER CODE END I2C2_IRQn 0 */
-  if (hi2c2.Instance->ISR & (I2C_FLAG_BERR | I2C_FLAG_ARLO | I2C_FLAG_OVR)) {
-    HAL_I2C_ER_IRQHandler(&hi2c2);
-  } else {
-    HAL_I2C_EV_IRQHandler(&hi2c2);
-  }
-  /* USER CODE BEGIN I2C2_IRQn 1 */
-
-  /* USER CODE END I2C2_IRQn 1 */
 }
 
 /**
