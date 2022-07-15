@@ -81,6 +81,7 @@ extern int data_display;
 extern int i;
 extern uint8_t A0_flag;
 uint8_t time_data[32];
+unsigned char dot;
 
 void VirtualPort(unsigned int data) {
 	unsigned int temp_data, i;
@@ -157,8 +158,8 @@ void PrintTime(void) {
 	else {
 		data_display = RTC_ConvertFromDec(rx[2]) * 100 + RTC_ConvertFromDec(rx[1]);
 	}
-
 }
+
 
 /* USER CODE END 0 */
 
@@ -203,9 +204,33 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 //	SetTime(9, 56);
+	dot = 0;
 	while (1) {
 		PrintTime();
+		dot ^= 1;
 		HAL_Delay(100);
+
+		/* Поиск эелемента на дисплее */
+//		for(int x = 126; x < 130; x++){
+//			sprintf((char*)time_data, "%d""%s", x, " = x\n");
+//			HAL_UART_Transmit(&huart2, time_data, strlen(time_data), 0xFFFF);
+//			HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
+//			WriteByte(x);
+//			WriteByte(0xF8);
+//			HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
+//			HAL_Delay(1000);
+//		}
+//		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
+//		WriteByte(r | ~0b01111111);
+//		WriteByte(0xF2);
+//		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
+//		HAL_Delay(1000);
+//
+//		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
+//		WriteByte(r & 0b01111111);
+//		WriteByte(0xF2);
+//		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
+//		HAL_Delay(1000);
 
     /* USER CODE END WHILE */
 
