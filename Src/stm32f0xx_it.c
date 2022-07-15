@@ -52,17 +52,18 @@
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-unsigned char numberChar[] = {0xC0, 0xF9, 0xA4, 0xB0, 0x99, 0x92, 0x82, 0xF8, 0X80, 0X90};
+unsigned char numberChar[] = {0xC0, 0xF9, 0xA4, 0xB0, 0x99, 0x92, 0x82, 0xF8, 0X80, 0X90, };
 unsigned char segment[]   = {0xF1, 0xF2, 0xF4, 0xF8};
 uint8_t A0_flag;
+extern unsigned char dot;
 
-void WriteBit(char _bit) {
+extern void WriteBit(char _bit) {
 	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 0);
 	HAL_GPIO_WritePin(Data_GPIO_Port, Data_Pin, _bit);
 	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 1);
 }
 
-void WriteByte(char _byte) {
+extern void WriteByte(char _byte) {
 	char temp = 0;
     char count = 8;
     char result = 0;
@@ -81,7 +82,6 @@ void WriteByte(char _byte) {
 
 void PrintSegments(unsigned int data) {
 	unsigned int i = 0;
-
 	unsigned char number[4] = { 0, 0, 0, 0 };
 
 	number[0] = data / 1000;
@@ -90,6 +90,12 @@ void PrintSegments(unsigned int data) {
 	number[3] = data % 10;
 
 	for (i = 0; i < 4; i++) {
+		if(dot == 1 && i == 1){
+			numberChar[number[i]] = numberChar[number[i]] & 0b01111111;
+		}
+		else {
+			numberChar[number[i]] = numberChar[number[i]] | ~0b01111111;
+		}
 		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
 		WriteByte(numberChar[number[i]]);
 		WriteByte(segment[i]);
