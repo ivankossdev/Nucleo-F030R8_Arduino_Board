@@ -82,6 +82,7 @@ extern void WriteByte(char _byte) {
 
 void PrintSegments(unsigned int data) {
 	unsigned int i = 0;
+	unsigned int sec = 0;
 	unsigned char number[4] = { 0, 0, 0, 0 };
 
 	number[0] = data / 1000;
@@ -89,7 +90,11 @@ void PrintSegments(unsigned int data) {
 	number[2] = data % 100 / 10;
 	number[3] = data % 10;
 
-	for (i = 0; i < 4; i++) {
+	if (A0_flag == 1){
+		sec = 2;
+	}
+
+	for (i = sec; i < 4; i++) {
 		if(dot == 1 && i == 1){
 			numberChar[number[i]] = numberChar[number[i]] & 0b01111111;
 		}
@@ -204,7 +209,7 @@ void EXTI0_1_IRQHandler(void)
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
   /* USER CODE BEGIN EXTI0_1_IRQn 1 */
   A0_flag = 1;
-  sprintf((char*)data_send,"%s", "A0_Reset\n");
+  sprintf((char*)data_send,"%s", "A0_flag\n");
   HAL_UART_Transmit(&huart2, data_send, 9, 0xFFFF);
   /* USER CODE END EXTI0_1_IRQn 1 */
 }
