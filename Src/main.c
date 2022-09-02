@@ -1,38 +1,48 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file    stm32f0xx_it.c
-  * @brief   Interrupt Service Routines.
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2022 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2022 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
-
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "stm32f0xx_it.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <string.h>
 #include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN TD */
+/* USER CODE BEGIN PTD */
 
-/* USER CODE END TD */
+/* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define D10_ON HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, 0)
+#define D10_OFF HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, 1)
 
+#define D11_ON HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, 0)
+#define D11_OFF HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, 1)
+
+#define D12_ON HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 0)
+#define D12_OFF HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 1)
+
+#define D13_ON HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0)
+#define D13_OFF HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 1)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -41,208 +51,478 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ I2C_HandleTypeDef hi2c2;
+
+SPI_HandleTypeDef hspi2;
+
+TIM_HandleTypeDef htim6;
+
+UART_HandleTypeDef huart2;
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_USART2_UART_Init(void);
+static void MX_SPI2_Init(void);
+static void MX_TIM6_Init(void);
+static void MX_I2C2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-unsigned char numberChar[] = {0xC0, 0xF9, 0xA4, 0xB0, 0x99, 0x92, 0x82, 0xF8, 0X80, 0X90, };
-unsigned char segment[]   = {0xF1, 0xF2, 0xF4, 0xF8};
-uint8_t A0_flag;
-extern unsigned char dot;
 
-extern void WriteBit(char _bit) {
-	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 0);
-	HAL_GPIO_WritePin(Data_GPIO_Port, Data_Pin, _bit);
-	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 1);
-}
+extern int data_display;
+extern int i;
+extern uint8_t A0_flag;
+uint8_t time_data[32];
+unsigned char dot;
 
-extern void WriteByte(char _byte) {
-	char temp = 0;
-    char count = 8;
-    char result = 0;
-//	HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
-	for (unsigned int i = 0; i < 8; i++) {
-		temp = (_byte >> i) & 0x01;
-        count--;
-        result |= temp << count;
-	}
-	for(unsigned int i = 0; i < 8; i++){
-		temp = (result >> i) & 0x01;
-		WriteBit(temp);
-	}
-//	HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
-}
+void VirtualPort(unsigned int data) {
+	unsigned int temp_data, i;
 
-void PrintSegments(unsigned int data) {
-	unsigned int i = 0;
-	unsigned int sec = 0;
-	unsigned char number[4] = { 0, 0, 0, 0 };
-
-	number[0] = data / 1000;
-	number[1] = data % 1000 / 100;
-	number[2] = data % 100 / 10;
-	number[3] = data % 10;
-
-	if (A0_flag == 1){
-		sec = 2;
-	}
-
-	for (i = sec; i < 4; i++) {
-		if(dot == 1 && i == 1){
-			numberChar[number[i]] = numberChar[number[i]] & 0b01111111;
+	for (i = 0; i < 4; i++) {
+		temp_data = ~(data >> i) & 0x01;
+		switch (i) {
+		case 0:
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, temp_data);
+			break;
+		case 1:
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, temp_data);
+			break;
+		case 2:
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, temp_data);
+			break;
+		case 3:
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, temp_data);
+			break;
 		}
-		else {
-			numberChar[number[i]] = numberChar[number[i]] | ~0b01111111;
-		}
-		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
-		WriteByte(numberChar[number[i]]);
-		WriteByte(segment[i]);
-		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
 	}
 }
+
+void VirtualPortClear() {
+	D10_OFF;
+	D11_OFF;
+	D12_OFF;
+	D13_OFF;
+}
+
+/* Virtual SPI 595
+ * STM   -->         <-- Board
+ * PA9  - D8  Data   D8 14 - Ds serial data input
+ * PA8  - D7  CLK	 D7 11 - SHcp shift register clock input
+ * PB5  - D4  STcp   D4 12 - STcp storage register input
+ */
+
+uint8_t RTC_ConvertFromDec(uint8_t c)
+
+{
+	uint8_t ch = ((c >> 4) * 10 + (0x0F & c));
+	return ch;
+}
+
+uint8_t RTC_ConvertFromBinDec(uint8_t c) {
+	uint8_t ch = ((c / 10) << 4) | (c % 10);
+	return ch;
+}
+
+void SetTime(uint8_t hour, uint8_t min) {
+	uint8_t tx[1];
+	tx[0] = RTC_ConvertFromBinDec(min);
+	HAL_I2C_Mem_Write(&hi2c2, 0xD0, 0x01, 1, tx, 1, 1000);
+	tx[0] = RTC_ConvertFromBinDec(hour);
+	HAL_I2C_Mem_Write(&hi2c2, 0xD0, 0x02, 1, tx, 1, 1000);
+}
+
+void PrintTime(void) {
+	char rx[5];
+
+	for(int i = 0; i < 3; i++){
+		HAL_I2C_Mem_Read(&hi2c2, 0xD0, i, 1, time_data, 1, 1000);
+		rx[i] = time_data[0];
+	}
+
+	if(A0_flag == 1){
+		data_display = RTC_ConvertFromDec(rx[0]); //RTC_ConvertFromDec(rx[1]) * 100 +
+		VirtualPort(1 << 1);
+		if(HAL_GPIO_ReadPin(A1_Button_GPIO_Port, A1_Button_Pin) == 0){
+			VirtualPortClear();
+			A0_flag = 0;
+		}
+	}
+	else {
+		data_display = RTC_ConvertFromDec(rx[2]) * 100 + RTC_ConvertFromDec(rx[1]);
+	}
+}
+
+
 /* USER CODE END 0 */
 
-/* External variables --------------------------------------------------------*/
-extern TIM_HandleTypeDef htim6;
-extern UART_HandleTypeDef huart2;
-/* USER CODE BEGIN EV */
-int data_display;
-int i;
-uint8_t data_send[16];
-/* USER CODE END EV */
-
-/******************************************************************************/
-/*           Cortex-M0 Processor Interruption and Exception Handlers          */
-/******************************************************************************/
 /**
-  * @brief This function handles Non maskable interrupt.
+  * @brief  The application entry point.
+  * @retval int
   */
-void NMI_Handler(void)
+int main(void)
 {
-  /* USER CODE BEGIN NonMaskableInt_IRQn 0 */
+  /* USER CODE BEGIN 1 */
 
-  /* USER CODE END NonMaskableInt_IRQn 0 */
-  /* USER CODE BEGIN NonMaskableInt_IRQn 1 */
-  while (1)
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART2_UART_Init();
+  MX_SPI2_Init();
+  MX_TIM6_Init();
+  MX_I2C2_Init();
+  /* USER CODE BEGIN 2 */
+
+	HAL_TIM_Base_Start_IT(&htim6);
+	VirtualPortClear();
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+//	SetTime(8, 58);
+	dot = 0;
+	while (1) {
+		PrintTime();
+		dot ^= 1;
+		HAL_Delay(250);
+
+		/* Поиск эелемента на дисплее */
+//		for(int x = 126; x < 130; x++){
+//			sprintf((char*)time_data, "%d""%s", x, " = x\n");
+//			HAL_UART_Transmit(&huart2, time_data, strlen(time_data), 0xFFFF);
+//			HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
+//			WriteByte(x);
+//			WriteByte(0xF8);
+//			HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
+//			HAL_Delay(1000);
+//		}
+//		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
+//		WriteByte(r | ~0b01111111);
+//		WriteByte(0xF2);
+//		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
+//		HAL_Delay(1000);
+//
+//		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
+//		WriteByte(r & 0b01111111);
+//		WriteByte(0xF2);
+//		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
+//		HAL_Delay(1000);
+
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+	}
+  /* USER CODE END 3 */
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL12;
+  RCC_OscInitStruct.PLL.PREDIV = RCC_PREDIV_DIV1;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
+    Error_Handler();
   }
-  /* USER CODE END NonMaskableInt_IRQn 1 */
-}
 
-/**
-  * @brief This function handles Hard fault interrupt.
+  /** Initializes the CPU, AHB and APB buses clocks
   */
-void HardFault_Handler(void)
-{
-  /* USER CODE BEGIN HardFault_IRQn 0 */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
 
-  /* USER CODE END HardFault_IRQn 0 */
-  while (1)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
   {
-    /* USER CODE BEGIN W1_HardFault_IRQn 0 */
-    /* USER CODE END W1_HardFault_IRQn 0 */
+    Error_Handler();
   }
 }
 
 /**
-  * @brief This function handles System service call via SWI instruction.
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
   */
-void SVC_Handler(void)
+static void MX_I2C2_Init(void)
 {
-  /* USER CODE BEGIN SVC_IRQn 0 */
 
-  /* USER CODE END SVC_IRQn 0 */
-  /* USER CODE BEGIN SVC_IRQn 1 */
+  /* USER CODE BEGIN I2C2_Init 0 */
 
-  /* USER CODE END SVC_IRQn 1 */
+  /* USER CODE END I2C2_Init 0 */
+
+  /* USER CODE BEGIN I2C2_Init 1 */
+
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.Timing = 0x20303E5D;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C2_Init 2 */
+
+  /* USER CODE END I2C2_Init 2 */
+
 }
 
 /**
-  * @brief This function handles Pendable request for system service.
+  * @brief SPI2 Initialization Function
+  * @param None
+  * @retval None
   */
-void PendSV_Handler(void)
+static void MX_SPI2_Init(void)
 {
-  /* USER CODE BEGIN PendSV_IRQn 0 */
 
-  /* USER CODE END PendSV_IRQn 0 */
-  /* USER CODE BEGIN PendSV_IRQn 1 */
+  /* USER CODE BEGIN SPI2_Init 0 */
 
-  /* USER CODE END PendSV_IRQn 1 */
+  /* USER CODE END SPI2_Init 0 */
+
+  /* USER CODE BEGIN SPI2_Init 1 */
+
+  /* USER CODE END SPI2_Init 1 */
+  /* SPI2 parameter configuration*/
+  hspi2.Instance = SPI2;
+  hspi2.Init.Mode = SPI_MODE_MASTER;
+  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.NSS = SPI_NSS_SOFT;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi2.Init.CRCPolynomial = 7;
+  hspi2.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
+  hspi2.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  if (HAL_SPI_Init(&hspi2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI2_Init 2 */
+
+  /* USER CODE END SPI2_Init 2 */
+
 }
 
 /**
-  * @brief This function handles System tick timer.
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
   */
-void SysTick_Handler(void)
+static void MX_TIM6_Init(void)
 {
-  /* USER CODE BEGIN SysTick_IRQn 0 */
 
-  /* USER CODE END SysTick_IRQn 0 */
-  HAL_IncTick();
-  /* USER CODE BEGIN SysTick_IRQn 1 */
+  /* USER CODE BEGIN TIM6_Init 0 */
 
-  /* USER CODE END SysTick_IRQn 1 */
-}
+  /* USER CODE END TIM6_Init 0 */
 
-/******************************************************************************/
-/* STM32F0xx Peripheral Interrupt Handlers                                    */
-/* Add here the Interrupt Handlers for the used peripherals.                  */
-/* For the available peripheral interrupt handler names,                      */
-/* please refer to the startup file (startup_stm32f0xx.s).                    */
-/******************************************************************************/
+  /* USER CODE BEGIN TIM6_Init 1 */
 
-/**
-  * @brief This function handles EXTI line 0 and 1 interrupts.
-  */
-void EXTI0_1_IRQHandler(void)
-{
-  /* USER CODE BEGIN EXTI0_1_IRQn 0 */
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 1;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 10500;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
 
-  /* USER CODE END EXTI0_1_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
-  /* USER CODE BEGIN EXTI0_1_IRQn 1 */
-  A0_flag = 1;
-  sprintf((char*)data_send,"%s", "A0_flag\n");
-  HAL_UART_Transmit(&huart2, data_send, 9, 0xFFFF);
-  /* USER CODE END EXTI0_1_IRQn 1 */
+  /* USER CODE END TIM6_Init 2 */
+
 }
 
 /**
-  * @brief This function handles TIM6 global interrupt.
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
   */
-void TIM6_IRQHandler(void)
+static void MX_USART2_UART_Init(void)
 {
-  /* USER CODE BEGIN TIM6_IRQn 0 */
 
-  /* USER CODE END TIM6_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim6);
-  /* USER CODE BEGIN TIM6_IRQn 1 */
-  PrintSegments(data_display);
+  /* USER CODE BEGIN USART2_Init 0 */
 
-  /* USER CODE END TIM6_IRQn 1 */
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 9600;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
 }
 
 /**
-  * @brief This function handles USART2 global interrupt.
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
   */
-void USART2_IRQHandler(void)
+static void MX_GPIO_Init(void)
 {
-  /* USER CODE BEGIN USART2_IRQn 0 */
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-  /* USER CODE END USART2_IRQn 0 */
-  HAL_UART_IRQHandler(&huart2);
-  /* USER CODE BEGIN USART2_IRQn 1 */
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOF_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /* USER CODE END USART2_IRQn 1 */
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, LD2_Pin|GPIO_PIN_6|GPIO_PIN_7|CLK_Pin
+                          |Data_Pin|GPIO_PIN_10, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, STcp_Pin|GPIO_PIN_6, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : B1_Pin */
+  GPIO_InitStruct.Pin = B1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PA1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : A1_Button_Pin */
+  GPIO_InitStruct.Pin = A1_Button_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(A1_Button_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : LD2_Pin PA6 PA7 CLK_Pin
+                           Data_Pin PA10 */
+  GPIO_InitStruct.Pin = LD2_Pin|GPIO_PIN_6|GPIO_PIN_7|CLK_Pin
+                          |Data_Pin|GPIO_PIN_10;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : STcp_Pin PB6 */
+  GPIO_InitStruct.Pin = STcp_Pin|GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
+
 }
 
-/* USER CODE BEGIN 1 */
+/* USER CODE BEGIN 4 */
 
-/* USER CODE END 1 */
+/* USER CODE END 4 */
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+	/* User can add his own implementation to report the HAL error return state */
+	__disable_irq();
+	while (1) {
+	}
+  /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef  USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
