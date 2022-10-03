@@ -55,7 +55,9 @@
 unsigned char numberChar[] = {0xC0, 0xF9, 0xA4, 0xB0, 0x99, 0x92, 0x82, 0xF8, 0X80, 0X90, };
 unsigned char segment[]   = {0xF1, 0xF2, 0xF4, 0xF8};
 uint8_t A0_flag;
+uint8_t buttonFlag;
 extern unsigned char dot;
+void VirtualPortClear(void);
 
 extern void WriteBit(char _bit) {
 	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 0);
@@ -209,8 +211,9 @@ void EXTI0_1_IRQHandler(void)
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
   /* USER CODE BEGIN EXTI0_1_IRQn 1 */
   A0_flag = 1;
-  sprintf((char*)data_send,"%s", "A0_flag\n");
-  HAL_UART_Transmit(&huart2, data_send, 9, 0xFFFF);
+  buttonFlag = 1;
+  sprintf((char*)data_send,"%s", "A0_flag");
+  HAL_UART_Transmit(&huart2, data_send, 7, 0xFFFF);
   /* USER CODE END EXTI0_1_IRQn 1 */
 }
 
@@ -238,8 +241,11 @@ void USART2_IRQHandler(void)
 
   /* USER CODE END USART2_IRQn 0 */
   HAL_UART_IRQHandler(&huart2);
-  /* USER CODE BEGIN USART2_IRQn 1 */
 
+  /* USER CODE BEGIN USART2_IRQn 1 */
+//  VirtualPortClear();
+//  A0_flag = 0;
+//  buttonFlag = 0;
   /* USER CODE END USART2_IRQn 1 */
 }
 
