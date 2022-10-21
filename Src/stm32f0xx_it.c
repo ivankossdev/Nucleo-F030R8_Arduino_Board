@@ -55,17 +55,16 @@
 unsigned char numberChar[] = {0xC0, 0xF9, 0xA4, 0xB0, 0x99, 0x92, 0x82, 0xF8, 0X80, 0X90, };
 unsigned char segment[]   = {0xF1, 0xF2, 0xF4, 0xF8};
 uint8_t A0_flag;
-uint8_t buttonFlag;
 extern unsigned char dot;
 void VirtualPortClear(void);
 
-extern void WriteBit(char _bit) {
+void WriteBit(char _bit) {
 	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 0);
 	HAL_GPIO_WritePin(Data_GPIO_Port, Data_Pin, _bit);
 	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 1);
 }
 
-extern void WriteByte(char _byte) {
+void WriteByte(char _byte) {
 	char temp = 0;
     char count = 8;
     char result = 0;
@@ -82,9 +81,8 @@ extern void WriteByte(char _byte) {
 //	HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
 }
 
-void PrintSegments(unsigned int data) {
+extern void PrintSegments(unsigned int data) {
 	unsigned int i = 0;
-	unsigned int sec = 0;
 	unsigned char number[4] = { 0, 0, 0, 0 };
 
 	number[0] = data / 1000;
@@ -92,11 +90,7 @@ void PrintSegments(unsigned int data) {
 	number[2] = data % 100 / 10;
 	number[3] = data % 10;
 
-	if (A0_flag == 1){
-		sec = 2;
-	}
-
-	for (i = sec; i < 4; i++) {
+	for (i = 0; i < 4; i++) {
 		if(dot == 1 && i == 1){
 			numberChar[number[i]] = numberChar[number[i]] & 0b01111111;
 		}
@@ -117,7 +111,6 @@ extern UART_HandleTypeDef huart2;
 /* USER CODE BEGIN EV */
 int data_display;
 int i;
-uint8_t data_send[16];
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -208,12 +201,9 @@ void EXTI0_1_IRQHandler(void)
   /* USER CODE BEGIN EXTI0_1_IRQn 0 */
 
   /* USER CODE END EXTI0_1_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
+  HAL_GPIO_EXTI_IRQHandler(A1_Button_Pin);
   /* USER CODE BEGIN EXTI0_1_IRQn 1 */
   A0_flag = 1;
-  buttonFlag = 1;
-  sprintf((char*)data_send,"%s", "A0_flag");
-  HAL_UART_Transmit(&huart2, data_send, 7, 0xFFFF);
   /* USER CODE END EXTI0_1_IRQn 1 */
 }
 
@@ -241,7 +231,6 @@ void USART2_IRQHandler(void)
 
   /* USER CODE END USART2_IRQn 0 */
   HAL_UART_IRQHandler(&huart2);
-
   /* USER CODE BEGIN USART2_IRQn 1 */
 //  VirtualPortClear();
 //  A0_flag = 0;
