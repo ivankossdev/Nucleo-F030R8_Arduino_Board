@@ -195,7 +195,7 @@ void PrintTime(void) {
 
 }
 
-void SetA1_Button(uint8_t set) {
+extern void SetA1_Button(uint8_t set) {
 	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
 
 	if (set == 1) {
@@ -269,11 +269,11 @@ int main(void) {
 				VirtualPort(1<<1);
 			}
 			if (HAL_GPIO_ReadPin(A3_Button_GPIO_Port, A3_Button_Pin) == 0) {
-				A0_flag = 0;
 				VirtualPort(1<<2);
-				SetA1_Button(A0_flag);
+				SetA1_Button(0);
 				HAL_Delay(500);
 				VirtualPortClear();
+				A0_flag = 0;
 			}
 
 		} else {
