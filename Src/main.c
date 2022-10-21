@@ -80,10 +80,13 @@ static void MX_I2C2_Init(void);
 extern int data_display;
 extern int i;
 extern uint8_t A0_flag;
-extern uint8_t buttonFlag;
 uint8_t time_data[32];
+uint8_t data_send[16];
 char str[7];
 unsigned char dot;
+
+void PrintSegments(unsigned int data);
+void WriteByte(char _byte);
 
 void VirtualPort(unsigned int data) {
 	unsigned int temp_data, i;
@@ -143,29 +146,42 @@ void SetTime(uint8_t hour, uint8_t min, uint8_t sec) {
 	HAL_I2C_Mem_Write(&hi2c2, 0xD0, 0x02, 1, tx, 1, 1000);
 }
 
-
-void command(char c){
-	switch(c){
-		case '1': VirtualPort(1 << 0); break;
-		case '2': VirtualPort(1 << 1); break;
-		case '3': VirtualPort(1 << 2); break;
-		case '4': VirtualPort(1 << 3); break;
-		case '0': VirtualPortClear(); break;
+void Command(char c) {
+	switch (c) {
+	case '4':
+		VirtualPort(1 << 0);
+		break;
+	case '3':
+		VirtualPort(1 << 1);
+		break;
+	case '2':
+		VirtualPort(1 << 2);
+		break;
+	case '1':
+		VirtualPort(1 << 3);
+		break;
+	case '0':
+		VirtualPortClear();
+		break;
 	}
 }
 
-int get_int(char t){
+int Get_int(char t) {
 	return t - 48;
 }
 
-void parse(char *s){
-	switch(s[0]){
-		case 'l': command(s[1]); break;
-		case 't': SetTime(get_int(s[1]) * 10 + get_int(s[2]), get_int(s[3]) * 10 + get_int(s[4]), get_int(s[5]) * 10 + get_int(s[6]));
-				  break;
+void Command_Handler(char *s) {
+	switch (s[0]) {
+	case 'l':
+		Command(s[1]);
+		break;
+	case 't':
+		SetTime(Get_int(s[1]) * 10 + Get_int(s[2]),
+				Get_int(s[3]) * 10 + Get_int(s[4]),
+				Get_int(s[5]) * 10 + Get_int(s[6]));
+		break;
 	}
 }
-
 
 void PrintTime(void) {
 	char rx[5];
@@ -175,17 +191,25 @@ void PrintTime(void) {
 		rx[i] = time_data[0];
 	}
 
-	if (A0_flag == 1) {
-		data_display = RTC_ConvertFromDec(rx[0]);
-		if (HAL_GPIO_ReadPin(A1_Button_GPIO_Port, A1_Button_Pin) == 0) {
-			VirtualPortClear();
-			A0_flag = 0;
-			buttonFlag = 0;
-		}
-	} else {
-		data_display = RTC_ConvertFromDec(rx[2]) * 100
-				+ RTC_ConvertFromDec(rx[1]);
+	data_display = RTC_ConvertFromDec(rx[2]) * 100 + RTC_ConvertFromDec(rx[1]);
+
+}
+
+void SetA1_Button(uint8_t set) {
+	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+
+	if (set == 1) {
+		GPIO_InitStruct.Pin = A1_Button_Pin;
+		GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+		GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+		HAL_NVIC_DisableIRQ(EXTI0_1_IRQn);
+	} else if (set == 0) {
+		GPIO_InitStruct.Pin = A1_Button_Pin;
+		GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+		GPIO_InitStruct.Pull = GPIO_NOPULL;
+		HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
 	}
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
 
 /* USER CODE END 0 */
@@ -230,20 +254,41 @@ int main(void) {
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
-//	SetTime(15, 35);
 	dot = 0;
-	while (1) {
-		PrintTime();
-		dot ^= 1;
-		HAL_Delay(250);
 
-		if (huart2.RxXferCount == 0)
-		{
-			str[16]=0;
-			HAL_UART_Receive_IT(&huart2, (uint8_t*) str, 7);
-			parse(str);
+	while (1) {
+		if (A0_flag == 1) {
+			SetA1_Button(A0_flag);
+			dot = 0;
+			data_display = 0;
+
+			if (HAL_GPIO_ReadPin(A1_Button_GPIO_Port, A1_Button_Pin) == 0) {
+				VirtualPort(1<<0);
+			}
+			if (HAL_GPIO_ReadPin(A2_Button_GPIO_Port, A2_Button_Pin) == 0) {
+				VirtualPort(1<<1);
+			}
+			if (HAL_GPIO_ReadPin(A3_Button_GPIO_Port, A3_Button_Pin) == 0) {
+				A0_flag = 0;
+				VirtualPort(1<<2);
+				SetA1_Button(A0_flag);
+				HAL_Delay(500);
+				VirtualPortClear();
+			}
+
+		} else {
+			PrintTime();
+			dot ^= 1;
+			HAL_Delay(250);
+			if (huart2.RxXferCount == 0) {
+				str[7] = 0;
+				HAL_UART_Receive_IT(&huart2, (uint8_t*) str, 7);
+				Command_Handler(str);
+			}
 		}
 
+		//			sprintf((char*) data_send, "%s", "A0_flag");
+		//			HAL_UART_Transmit(&huart2, data_send, 7, 0xFFFF);
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
@@ -458,17 +503,17 @@ static void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-	/*Configure GPIO pin : PA1 */
-	GPIO_InitStruct.Pin = GPIO_PIN_1;
-	GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
 	/*Configure GPIO pin : A1_Button_Pin */
 	GPIO_InitStruct.Pin = A1_Button_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(A1_Button_GPIO_Port, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : A2_Button_Pin */
+	GPIO_InitStruct.Pin = A2_Button_Pin;
 	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
 	GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-	HAL_GPIO_Init(A1_Button_GPIO_Port, &GPIO_InitStruct);
+	HAL_GPIO_Init(A2_Button_GPIO_Port, &GPIO_InitStruct);
 
 	/*Configure GPIO pins : LD2_Pin PA6 PA7 CLK_Pin
 	 Data_Pin PA10 */
@@ -478,6 +523,12 @@ static void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : A3_Button_Pin */
+	GPIO_InitStruct.Pin = A3_Button_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(A3_Button_GPIO_Port, &GPIO_InitStruct);
 
 	/*Configure GPIO pins : STcp_Pin PB6 */
 	GPIO_InitStruct.Pin = STcp_Pin | GPIO_PIN_6;
