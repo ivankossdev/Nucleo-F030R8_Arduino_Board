@@ -57,6 +57,7 @@ unsigned char segment[]   = {0xF1, 0xF2, 0xF4, 0xF8};
 uint8_t A0_flag;
 extern unsigned char dot;
 void VirtualPortClear(void);
+void SetA1_Button(uint8_t set);
 
 void WriteBit(char _bit) {
 	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 0);
@@ -233,8 +234,8 @@ void USART2_IRQHandler(void)
   HAL_UART_IRQHandler(&huart2);
   /* USER CODE BEGIN USART2_IRQn 1 */
 //  VirtualPortClear();
-//  A0_flag = 0;
-//  buttonFlag = 0;
+  A0_flag = 0;
+  SetA1_Button(A0_flag);
   /* USER CODE END USART2_IRQn 1 */
 }
 
