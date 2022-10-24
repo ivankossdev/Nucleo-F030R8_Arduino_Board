@@ -78,6 +78,7 @@ static void MX_I2C2_Init(void);
 /* USER CODE BEGIN 0 */
 
 extern int data_display;
+int alarm_time;
 extern int i;
 extern uint8_t A0_flag;
 uint8_t time_data[32];
@@ -85,8 +86,12 @@ uint8_t data_send[16];
 char str[7];
 unsigned char dot;
 
-void PrintSegments(unsigned int data);
-void WriteByte(char _byte);
+typedef struct{
+	uint8_t h;
+	uint8_t m;
+	uint8_t s;
+}time;
+
 
 void VirtualPort(unsigned int data) {
 	unsigned int temp_data, i;
@@ -195,6 +200,26 @@ void PrintTime(void) {
 
 }
 
+void Alarm(int alarmTime, int displayTime){
+	time dsp;
+	time alr;
+
+	dsp.h = displayTime / 100;
+	dsp.m = displayTime % 100;
+	dsp.s = 0;
+
+	alr.h = alarmTime / 100;
+	alr.m = alarmTime % 100;
+	alr.s = 0;
+
+	if (alr.h == dsp.h && alr.m == dsp.m){
+		VirtualPort(1 << 3);
+	}
+	else{
+		VirtualPortClear();
+	}
+}
+
 extern void SetA1_Button(uint8_t set) {
 	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
 
@@ -230,12 +255,6 @@ unsigned int Button_Handler(GPIO_PinState state) {
 
 	return btn_state;
 }
-
-typedef struct{
-	uint8_t h;
-	uint8_t m;
-	uint8_t s;
-}time;
 
 /* USER CODE END 0 */
 
@@ -317,6 +336,7 @@ int main(void) {
 			}
 		} else {
 			PrintTime();
+			Alarm(1607, data_display);
 			dot ^= 1;
 			HAL_Delay(250);
 			if (huart2.RxXferCount == 0) {
@@ -325,9 +345,6 @@ int main(void) {
 				Command_Handler(str);
 			}
 		}
-
-		//			sprintf((char*) data_send, "%s", "A0_flag");
-		//			HAL_UART_Transmit(&huart2, data_send, 7, 0xFFFF);
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
