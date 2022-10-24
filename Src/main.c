@@ -218,7 +218,8 @@ unsigned int Button_Handler(GPIO_PinState state) {
 
 	if (state == GPIO_PIN_RESET) {
 		while (!state) {
-			if (butcount < 50000) {
+
+			if (butcount < 50250) {
 				butcount++;
 			} else {
 				btn_state = 1;
@@ -226,8 +227,15 @@ unsigned int Button_Handler(GPIO_PinState state) {
 			}
 		}
 	}
+
 	return btn_state;
 }
+
+typedef struct{
+	uint8_t h;
+	uint8_t m;
+	uint8_t s;
+}time;
 
 /* USER CODE END 0 */
 
@@ -267,28 +275,40 @@ int main(void) {
 	HAL_TIM_Base_Start_IT(&htim6);
 
 	VirtualPortClear();
+	dot = 0;
+	time tm;
+	tm.h = 0;
+	tm.m = 0;
+	tm.s = 0;
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
-	dot = 0;
-
 	while (1) {
 		if (A0_flag == 1) {
 			SetA1_Button(A0_flag);
-			dot = 0;
+			dot = 1;
 			if (Button_Handler(
 					HAL_GPIO_ReadPin(A1_Button_GPIO_Port, A1_Button_Pin))) {
-				data_display = 1;
+				tm.h += 1;
+				if (tm.h > 23){
+					tm.h = 0;
+				}
+				data_display = tm.h * 100 + tm.m;
 				VirtualPort(1 << 0);
 			}
 			if (Button_Handler(
 					HAL_GPIO_ReadPin(A2_Button_GPIO_Port, A2_Button_Pin))) {
-				data_display += 1;
+				tm.m += 1;
+				if (tm.m > 59){
+					tm.m = 0;
+				}
+				data_display = tm.h * 100 + tm.m;
 				VirtualPort(1 << 1);
 			}
 			if (Button_Handler(HAL_GPIO_ReadPin(A3_Button_GPIO_Port, A3_Button_Pin))) {
-				data_display = 3;
+				SetTime(tm.h, tm.m, tm.s);
+				data_display = 0;
 				VirtualPort(1 << 2);
 				SetA1_Button(0);
 				HAL_Delay(500);
