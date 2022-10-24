@@ -212,6 +212,23 @@ extern void SetA1_Button(uint8_t set) {
 	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
 
+unsigned int Button_Handler(GPIO_PinState state) {
+	unsigned int btn_state = 0;
+	unsigned int butcount = 0;
+
+	if (state == GPIO_PIN_RESET) {
+		while (!state) {
+			if (butcount < 50000) {
+				butcount++;
+			} else {
+				btn_state = 1;
+				break;
+			}
+		}
+	}
+	return btn_state;
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -260,22 +277,24 @@ int main(void) {
 		if (A0_flag == 1) {
 			SetA1_Button(A0_flag);
 			dot = 0;
-			data_display = 0;
-
-			if (HAL_GPIO_ReadPin(A1_Button_GPIO_Port, A1_Button_Pin) == 0) {
-				VirtualPort(1<<0);
+			if (Button_Handler(
+					HAL_GPIO_ReadPin(A1_Button_GPIO_Port, A1_Button_Pin))) {
+				data_display = 1;
+				VirtualPort(1 << 0);
 			}
-			if (HAL_GPIO_ReadPin(A2_Button_GPIO_Port, A2_Button_Pin) == 0) {
-				VirtualPort(1<<1);
+			if (Button_Handler(
+					HAL_GPIO_ReadPin(A2_Button_GPIO_Port, A2_Button_Pin))) {
+				data_display += 1;
+				VirtualPort(1 << 1);
 			}
-			if (HAL_GPIO_ReadPin(A3_Button_GPIO_Port, A3_Button_Pin) == 0) {
-				VirtualPort(1<<2);
+			if (Button_Handler(HAL_GPIO_ReadPin(A3_Button_GPIO_Port, A3_Button_Pin))) {
+				data_display = 3;
+				VirtualPort(1 << 2);
 				SetA1_Button(0);
 				HAL_Delay(500);
 				VirtualPortClear();
 				A0_flag = 0;
 			}
-
 		} else {
 			PrintTime();
 			dot ^= 1;
@@ -491,7 +510,7 @@ static void MX_GPIO_Init(void) {
 
 	/*Configure GPIO pin Output Level */
 	HAL_GPIO_WritePin(GPIOA,
-			LD2_Pin | GPIO_PIN_6 | GPIO_PIN_7 | CLK_Pin | Data_Pin | GPIO_PIN_10,
+	LD2_Pin | GPIO_PIN_6 | GPIO_PIN_7 | CLK_Pin | Data_Pin | GPIO_PIN_10,
 			GPIO_PIN_RESET);
 
 	/*Configure GPIO pin Output Level */
