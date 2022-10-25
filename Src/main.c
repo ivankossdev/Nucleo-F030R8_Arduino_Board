@@ -86,12 +86,11 @@ uint8_t data_send[16];
 char str[7];
 unsigned char dot;
 
-typedef struct{
+typedef struct {
 	uint8_t h;
 	uint8_t m;
 	uint8_t s;
-}time;
-
+} time;
 
 void VirtualPort(unsigned int data) {
 	unsigned int temp_data, i;
@@ -200,7 +199,7 @@ void PrintTime(void) {
 
 }
 
-void Alarm(int alarmTime, int displayTime){
+void Alarm(int alarmTime, int displayTime) {
 	time dsp;
 	time alr;
 
@@ -212,11 +211,8 @@ void Alarm(int alarmTime, int displayTime){
 	alr.m = alarmTime % 100;
 	alr.s = 0;
 
-	if (alr.h == dsp.h && alr.m == dsp.m){
+	if (alr.h == dsp.h && alr.m == dsp.m) {
 		VirtualPort(1 << 3);
-	}
-	else{
-		VirtualPortClear();
 	}
 }
 
@@ -299,46 +295,114 @@ int main(void) {
 	tm.h = 0;
 	tm.m = 0;
 	tm.s = 0;
+
+	time alr;
+	alr.h = 6;
+	alr.m = 0;
+	alr.s = 0;
+	int save = 0;
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	while (1) {
 		if (A0_flag == 1) {
+
 			SetA1_Button(A0_flag);
 			dot = 1;
-			if (Button_Handler(
-					HAL_GPIO_ReadPin(A1_Button_GPIO_Port, A1_Button_Pin))) {
-				tm.h += 1;
-				if (tm.h > 23){
-					tm.h = 0;
+
+			while (save < 4) {
+				if (Button_Handler(HAL_GPIO_ReadPin(A3_Button_GPIO_Port,
+				A3_Button_Pin))) {
+					save += 1;
 				}
-				data_display = tm.h * 100 + tm.m;
-				VirtualPort(1 << 0);
-			}
-			if (Button_Handler(
-					HAL_GPIO_ReadPin(A2_Button_GPIO_Port, A2_Button_Pin))) {
-				tm.m += 1;
-				if (tm.m > 59){
-					tm.m = 0;
+				switch (save) {
+				case 0:
+					if (Button_Handler(HAL_GPIO_ReadPin(A1_Button_GPIO_Port,
+					A1_Button_Pin))) {
+						tm.h += 1;
+						if (tm.h > 23) {
+							tm.h = 0;
+						}
+					}
+
+					if (Button_Handler(HAL_GPIO_ReadPin(A2_Button_GPIO_Port,
+					A2_Button_Pin))) {
+						tm.m += 1;
+						if (tm.m > 59) {
+							tm.m = 0;
+						}
+					}
+					data_display = tm.h * 100 + tm.m;
+					break;
+
+				case 1:
+					if (Button_Handler(HAL_GPIO_ReadPin(A2_Button_GPIO_Port,
+					A2_Button_Pin))) {
+						SetTime(tm.h, tm.m, tm.s);
+						VirtualPort(0x0f);
+						HAL_Delay(500);
+					}
+					break;
+
+				case 2:
+
+					if (Button_Handler(HAL_GPIO_ReadPin(A1_Button_GPIO_Port,
+					A1_Button_Pin))) {
+						alr.h += 1;
+						if (alr.h > 23) {
+							alr.h = 0;
+						}
+					}
+
+					if (Button_Handler(HAL_GPIO_ReadPin(A2_Button_GPIO_Port,
+					A2_Button_Pin))) {
+						alr.m += 1;
+						if (alr.m > 59) {
+							alr.m = 0;
+						}
+					}
+					data_display = alr.h * 100 + alr.m;
+					break;
+				case 3:
+					if (Button_Handler(HAL_GPIO_ReadPin(A2_Button_GPIO_Port,
+					A2_Button_Pin))) {
+
+						alarm_time = alr.h * 100 + alr.m;
+						VirtualPort(0x0f);
+						HAL_Delay(500);
+					}
+					break;
 				}
-				data_display = tm.h * 100 + tm.m;
-				VirtualPort(1 << 1);
+
+				VirtualPort(1 << save);
+
 			}
-			if (Button_Handler(HAL_GPIO_ReadPin(A3_Button_GPIO_Port, A3_Button_Pin))) {
-				SetTime(tm.h, tm.m, tm.s);
-				data_display = 0;
-				VirtualPort(1 << 2);
-				SetA1_Button(0);
-				HAL_Delay(500);
-				VirtualPortClear();
-				A0_flag = 0;
-			}
+
+			tm.h = 0;
+			tm.m = 0;
+			save = 0;
+			data_display = 0;
+
+			VirtualPort(0x0f);
+			SetA1_Button(0);
+			HAL_Delay(500);
+			VirtualPortClear();
+			A0_flag = 0;
+
 		} else {
 			PrintTime();
-			Alarm(1607, data_display);
+			Alarm(alarm_time, data_display);
+
+			if (Button_Handler(
+					HAL_GPIO_ReadPin(A3_Button_GPIO_Port, A3_Button_Pin))) {
+				VirtualPortClear();
+			}
+
 			dot ^= 1;
+
 			HAL_Delay(250);
+
 			if (huart2.RxXferCount == 0) {
 				str[7] = 0;
 				HAL_UART_Receive_IT(&huart2, (uint8_t*) str, 7);
