@@ -396,6 +396,11 @@ int main(void)
 			Alarm(alarm_time, data_display);
 
 			if (Button_Handler(
+					HAL_GPIO_ReadPin(A2_Button_GPIO_Port, A2_Button_Pin))) {
+				HAL_GPIO_WritePin(Relay_GPIO_Port, Relay_Pin, 1);
+			}
+
+			if (Button_Handler(
 					HAL_GPIO_ReadPin(A3_Button_GPIO_Port, A3_Button_Pin))) {
 				HAL_GPIO_WritePin(Relay_GPIO_Port, Relay_Pin, 0);
 			}
