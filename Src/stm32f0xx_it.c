@@ -55,6 +55,7 @@
 unsigned char numberChar[] = {0xC0, 0xF9, 0xA4, 0xB0, 0x99, 0x92, 0x82, 0xF8, 0X80, 0X90, };
 unsigned char segment[]   = {0xF1, 0xF2, 0xF4, 0xF8};
 uint8_t A0_flag;
+uint8_t enable;
 extern unsigned char dot;
 void VirtualPortClear(void);
 void SetA1_Button(uint8_t set);
@@ -99,8 +100,12 @@ extern void PrintSegments(unsigned int data) {
 			numberChar[number[i]] = numberChar[number[i]] | ~0b01111111;
 		}
 		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 1);
-		WriteByte(numberChar[number[i]]);
-		WriteByte(segment[i]);
+		if (enable == 1){
+			WriteBit(0);
+		} else{
+			WriteByte(numberChar[number[i]]);
+			WriteByte(segment[i]);
+		}
 		HAL_GPIO_WritePin(STcp_GPIO_Port, STcp_Pin, 0);
 	}
 }
